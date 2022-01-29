@@ -10,8 +10,6 @@ from tqdm import tqdm
 import torch
 import torch.nn as nn
 
-
-
 class Config(NamedTuple):
     """ Hyperparameters for training """
     seed: int = 3431 # random seed

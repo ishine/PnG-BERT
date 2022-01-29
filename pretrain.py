@@ -21,8 +21,7 @@ from models import BertModel4Pretrain
 
 def main(train_cfg='configs/pretrain.json',
          model_cfg='configs/bert_base.json',
-         data_file='/media/newhd/BookCorpus/books_large_p1.txt',
-         eval_file='/media/newhd/BookCorpus/books_test.txt',
+         data_file='/media/newhd/BookCorpus/books_full.txt',
          model_file='/home/krishna/Krishna/Speech/PnGBERT/PnG-BERT/exp/bert/pretrain/model_steps_20000.pt',
          data_parallel=True,
          vocab='/media/newhd/BookCorpus/vocab.txt',
@@ -46,7 +45,7 @@ def main(train_cfg='configs/pretrain.json',
                                     tokenizer.convert_tokens_to_ids,
                                     max_len)]
     data_iter = SentPairDataLoader(data_file,
-                                   5,
+                                   cfg.batch_size,
                                    tokenize,
                                    tokenizer,
                                    max_len,
@@ -85,8 +84,8 @@ def main(train_cfg='configs/pretrain.json',
                            global_step)
         return loss_lm
 
-    #trainer.train(get_loss, model_file, None, data_parallel)
-    trainer.eval(evaluate, model_file, data_parallel=False)
+    trainer.train(get_loss, model_file, None, data_parallel)
+    
     
 
 if __name__ == '__main__':

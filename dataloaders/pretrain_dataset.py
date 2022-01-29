@@ -56,7 +56,7 @@ class SentPairDataLoader():
                     continue
                 else:
                     return tokens # return last tokens in the document
-            
+                
 
             no_punc_string = line.rstrip('\n').translate(str.maketrans('', '', string.punctuation))
             clean_string = " ".join(list(filter(None, no_punc_string.split(" "))))
