@@ -11,7 +11,7 @@ import torch
 import torch.nn as nn
 
 
-    
+
 class Config(NamedTuple):
     """ Hyperparameters for training """
     seed: int = 3431 # random seed
@@ -82,15 +82,15 @@ class Trainer(object):
         model = self.model.to(self.device)
         if data_parallel: # use Data Parallelism with Multi-GPU
             model = nn.DataParallel(model)
-
+        
         results = [] # prediction results
         iter_bar = tqdm(self.data_iter, desc='Iter (loss=X.XXX)')
         for batch in iter_bar:
             batch = [t.to(self.device) for t in batch]
             with torch.no_grad(): # evaluation without gradient calculation
-                accuracy, result = evaluate(model, batch) # accuracy to print
-            results.append(result)
-
+                accuracy = evaluate(model, batch) # accuracy to print
+            results.append(accuracy)
+            
             iter_bar.set_description('Iter(acc=%5.3f)'%accuracy)
         return results
 

@@ -22,7 +22,8 @@ from models import BertModel4Pretrain
 def main(train_cfg='configs/pretrain.json',
          model_cfg='configs/bert_base.json',
          data_file='/media/newhd/BookCorpus/books_large_p1.txt',
-         model_file=None,
+         eval_file='/media/newhd/BookCorpus/books_test.txt',
+         model_file='/home/krishna/Krishna/Speech/PnGBERT/PnG-BERT/exp/bert/pretrain/model_steps_20000.pt',
          data_parallel=True,
          vocab='/media/newhd/BookCorpus/vocab.txt',
          save_dir='./exp/bert/pretrain',
@@ -45,38 +46,48 @@ def main(train_cfg='configs/pretrain.json',
                                     tokenizer.convert_tokens_to_ids,
                                     max_len)]
     data_iter = SentPairDataLoader(data_file,
-                                   cfg.batch_size,
+                                   5,
                                    tokenize,
+                                   tokenizer,
                                    max_len,
                                    pipeline=pipeline)
+    
 
     model = BertModel4Pretrain(model_cfg)
-    criterion1 = nn.CrossEntropyLoss(reduction='none')
-    criterion2 = nn.CrossEntropyLoss()
+    criterion = nn.CrossEntropyLoss(reduction='none')
+    
 
     optim = optimizer.optim4GPU(cfg, model)
     trainer = train.Trainer(cfg, model, data_iter, optim, save_dir, get_device())
 
     writer = SummaryWriter(log_dir=log_dir) # for tensorboardX
+    
+
+    def evaluate(model, batch):
+        input_ids, segment_ids, input_mask, masked_ids, masked_pos, masked_weights, word_ids = batch
+        logits_lm = model(input_ids, segment_ids, input_mask, masked_pos,word_ids)
+        acc = torch.sum(masked_ids.view(-1) == logits_lm.argmax(dim=-1).view(-1)) / masked_ids.view(-1).size(0)
+        return acc, acc
 
     def get_loss(model, batch, global_step): # make sure loss is tensor
-        input_ids, segment_ids, input_mask, masked_ids, masked_pos, masked_weights, is_next = batch
-
-        logits_lm, logits_clsf = model(input_ids, segment_ids, input_mask, masked_pos)
-        loss_lm = criterion1(logits_lm.transpose(1, 2), masked_ids) # for masked LM
+        input_ids, segment_ids, input_mask, masked_ids, masked_pos, masked_weights, word_ids = batch
+        
+        logits_lm = model(input_ids, segment_ids, input_mask, masked_pos,word_ids)
+        loss_lm = criterion(logits_lm.transpose(1, 2), masked_ids) # for masked LM
         loss_lm = (loss_lm*masked_weights.float()).mean()
-        loss_clsf = criterion2(logits_clsf, is_next) # for sentence classification
+        
         writer.add_scalars('data/scalar_group',
                            {'loss_lm': loss_lm.item(),
-                            'loss_clsf': loss_clsf.item(),
-                            'loss_total': (loss_lm + loss_clsf).item(),
+                            
+                            'loss_total': loss_lm.item(),
                             'lr': optim.get_lr()[0],
                            },
                            global_step)
-        return loss_lm + loss_clsf
+        return loss_lm
 
-    trainer.train(get_loss, model_file, None, data_parallel)
-
+    #trainer.train(get_loss, model_file, None, data_parallel)
+    trainer.eval(evaluate, model_file, data_parallel=False)
+    
 
 if __name__ == '__main__':
     fire.Fire(main)

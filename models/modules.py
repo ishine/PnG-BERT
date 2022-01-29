@@ -25,7 +25,8 @@ class Config(NamedTuple):
     p_drop_attn: float = 0.1 # Probability of Dropout of Attention Layers
     max_len: int = 512 # Maximum Length for Positional Embeddings
     n_segments: int = 2 # Number of Sentence Segments
-
+    n_words: int = 512
+    
     @classmethod
     def from_json(cls, file):
         return cls(**json.load(open(file, "r")))
@@ -71,16 +72,17 @@ class Embeddings(nn.Module):
         self.tok_embed = nn.Embedding(cfg.vocab_size, cfg.dim) # token embedding
         self.pos_embed = nn.Embedding(cfg.max_len, cfg.dim) # position embedding
         self.seg_embed = nn.Embedding(cfg.n_segments, cfg.dim) # segment(token type) embedding
-        
+        self.word_embed = nn.Embedding(cfg.n_words, cfg.dim) # Word position embeddings
+
         self.norm = LayerNorm(cfg)
         self.drop = nn.Dropout(cfg.p_drop_hidden)
 
-    def forward(self, x, seg):
+    def forward(self, x, seg, word_ids):
         seq_len = x.size(1)
         pos = torch.arange(seq_len, dtype=torch.long, device=x.device)
         pos = pos.unsqueeze(0).expand_as(x) # (S,) -> (B, S)
 
-        e = self.tok_embed(x) + self.pos_embed(pos) + self.seg_embed(seg)
+        e = self.tok_embed(x) + self.pos_embed(pos) + self.seg_embed(seg) + self.word_embed(word_ids)
         return self.drop(self.norm(e))
 
 
@@ -157,8 +159,8 @@ class Transformer(nn.Module):
         self.embed = Embeddings(cfg)
         self.blocks = nn.ModuleList([Block(cfg) for _ in range(cfg.n_layers)])
 
-    def forward(self, x, seg, mask):
-        h = self.embed(x, seg)
+    def forward(self, x, seg, mask, word_ids):
+        h = self.embed(x, seg, word_ids)
         for block in self.blocks:
             h = block(h, mask)
         return h
